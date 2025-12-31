@@ -24,19 +24,13 @@ public  class Task
 {
     @Id
     private UUID iD;
-    private String type;
-    private JobStatus status;
+    private String task;
+    private String status;
     @Type(JsonBinaryType.class)
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name="data", columnDefinition = "jsonb")
+    @Column(name="data", columnDefinition = "json")
     private JSONObject data;
     private Instant timestamp;
     private int attempts;
-    public enum JobStatus
-    {
-        PENDING,
-        RETRYING,
-        FAILED,
-        COMPLETED
-    }
+
 }

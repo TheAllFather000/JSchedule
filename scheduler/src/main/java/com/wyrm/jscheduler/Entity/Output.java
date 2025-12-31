@@ -25,17 +25,13 @@ public  class Output
 {
     @Id
     private UUID ID;
-    private String type;
     @Type(JsonBinaryType.class)
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name="data", columnDefinition = "json")
+    @Column(name="results", columnDefinition = "json")
     private JSONObject results;
     private int attempts;
-    public enum JobStatus
-    {
-        PENDING,
-        RETRYING,
-        FAILED,
-        COMPLETED
-    }
+    private double processing_time;
+    private double execution_time;
+    private Instant completion_time;
+
 }
