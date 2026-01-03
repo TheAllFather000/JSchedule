@@ -34,4 +34,13 @@ public  class Output
     private double execution_time;
     private Instant completion_time;
 
+    public Output(Output o)
+    {
+        ID = o.ID;
+        results = o.results;
+        attempts = o.attempts;
+        processing_time = o.processing_time;
+        execution_time = o.execution_time;
+        completion_time = o.completion_time;
+    }
 }
