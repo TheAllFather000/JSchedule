@@ -1,4 +1,5 @@
 package com.wyrm.jscheduler.jobs.calculation.sums;
+import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
@@ -178,7 +179,7 @@ public class Matrix extends RecursiveAction implements Job
             return results;
         }
     }
-    /*
+    /* valid matrix example
     [1, 2, 3]   * [10, 11]
     [4, 5, 6]     [15, 16]
                   [18, 19]
@@ -192,10 +193,8 @@ public class Matrix extends RecursiveAction implements Job
      */
     public Double[][] MatrixMultiplication(Double[][] o1, Double[][] o2)
     {
-        if (o2.length == 0 || o1.length ==0)
-            return null;
-        if ((o1.length !=o2[0].length) || (o1[0].length != o2.length))
-            return null;
+        assert o1.length == 0 || o2.length == 0:"Input matrices are of length 0";
+        assert o1.length !=o2[0].length || o1[0].length != o2.length: "Columns on Matrix 1 does not equal rows on matrix 2";
         Double[][] result = new Double[o1.length][o2[0].length];
         for (int row = 0; row < o1.length; row++)
         {
@@ -219,4 +218,16 @@ public class Matrix extends RecursiveAction implements Job
         return matrixValue;
     }
 
+    public double[][] transpose(double[][] o1)
+    {
+        assert o1 != null: "Input matrix is null";
+        assert o1.length !=0: "Input matrix is empty";
+        double[][] o2 = new double[o1[0].length][o1.length];
+        for (int rows  = 0 ; rows < o1.length; rows++)
+        {
+            for (int cols = 0; cols < o1[0].length;cols++)
+                o2[cols][rows] = o1[rows][cols];
+        }
+        return o2;
+    }
 }
