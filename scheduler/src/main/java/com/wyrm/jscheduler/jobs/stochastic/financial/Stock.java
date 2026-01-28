@@ -1,6 +1,5 @@
 package com.wyrm.jscheduler.jobs.stochastic.financial;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
+import com.wyrm.jscheduler.jobs.calculation.sums.Matrix;
 import org.apache.commons.math3.optim.InitialGuess;
 import org.apache.commons.math3.optim.MaxEval;
 import org.apache.commons.math3.optim.PointValuePair;
@@ -12,18 +11,24 @@ import org.apache.commons.math3.optim.nonlinear.scalar.noderiv.SimplexOptimizer;
 import org.apache.commons.math3.stat.descriptive.moment.Variance;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.commons.math3.stat.correlation.Covariance;
+import org.apache.commons.math3.stat.descriptive.summary.Sum;
 import org.apache.commons.math3.distribution.NormalDistribution;
 import com.wyrm.jscheduler.jobs.Job;
 import org.json.JSONObject;
 import lombok.Data;
+
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
-
+import com.wyrm.jscheduler.utility.*;
 @SuppressWarnings("all")
 public class Stock extends Thread implements Job
 {
     private Mean m;
+    private Sum sum;
     private Variance v;
     private StandardDeviation sd;
     private NormalDistribution nd;
@@ -34,6 +39,7 @@ public class Stock extends Thread implements Job
     private double[] returns;
     private double[] innovationSeries;
     private double[] conditionalVariance;
+    private Tag[][] covarianceMatrix;
 
     //used for GARCH prediction
     private double mean;
@@ -45,7 +51,7 @@ public class Stock extends Thread implements Job
     private double[] logs;
 
     //minimum amount of times the MLE is repeated.
-    public static final int MIN_DIMENSIONS = 1000;
+    public static final int MIN_DIMENSIONS = 10000;
     public Stock(double[] d)
     {
         historicalData = d;
@@ -73,6 +79,7 @@ public class Stock extends Thread implements Job
         nd = new NormalDistribution();
         m = new Mean();
         sd = new StandardDeviation();
+        sum = new Sum();
     }
 
     public Stock(JSONObject d, double[] returns)
@@ -138,9 +145,9 @@ public class Stock extends Thread implements Job
         //calculate series of periodic returns
         assert historicalData.length >1: "Insufficient data for price prediction";
         double[] daily_return = new double[historicalData.length-1];
-        for (int i = 1; i < daily_return.length; i++)
+        for (int i = 0; i < daily_return.length; i++)
         {
-            daily_return[i-1] = Math.log(historicalData[i]/ historicalData[i-1]);
+            daily_return[i] = Math.log(historicalData[i+1]/ historicalData[i]);
         }
         v.setBiasCorrected(false);
         sd.setBiasCorrected(false);
@@ -160,9 +167,9 @@ public class Stock extends Thread implements Job
         //calculate series of periodic returns
         assert historicalData.length >1: "Insufficient data for price prediction";
         double[] daily_return = new double[historicalData.length-1];
-        for (int i = 1; i < daily_return.length; i++)
+        for (int i = 0; i < daily_return.length; i++)
         {
-            daily_return[i-1] = Math.log(historicalData[i]/ historicalData[i-1]);
+            daily_return[i] = Math.log(historicalData[i+1]/ historicalData[i]);
         }
         v.setBiasCorrected(false);
         sd.setBiasCorrected(false);
@@ -190,8 +197,8 @@ public class Stock extends Thread implements Job
                 .replace("}", "").replace("[", "")
                 .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray();
         returns = new double[historicalData.length-1];
-        for (int i = 1; i < historicalData.length; i++) {
-            returns[i-1] = Math.log(historicalData[i] / historicalData[i - 1]);
+        for (int i = 0; i < historicalData.length; i++) {
+            returns[i] = Math.log(historicalData[i+1] / historicalData[i]);
         }
         double drift = m.evaluate(returns);
         v.setBiasCorrected(false);
@@ -234,8 +241,8 @@ public class Stock extends Thread implements Job
                 .replace("}", "").replace("[", "")
                 .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray();
         returns = new double[historicalData.length-1];
-        for (int i = 1; i < historicalData.length; i++) {
-            returns[i-1] = Math.log(historicalData[i] / historicalData[i - 1]);
+        for (int i = 0; i < historicalData.length; i++) {
+            returns[i] = Math.log(historicalData[i+1] / historicalData[i]);
         }
         double drift = m.evaluate(returns);
         v.setBiasCorrected(false);
@@ -322,9 +329,9 @@ public class Stock extends Thread implements Job
                 .replace("}", "").replace("[", "")
                 .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray();
         double[] dailyChanges= new double[historicalData.length-1];
-        for (int i = 1 ; i  < dailyChanges.length;i++)
+        for (int i = 0 ; i  < dailyChanges.length;i++)
         {
-            dailyChanges[i-1] = (historicalData[i]-historicalData[i-1])/historicalData[i-1];
+            dailyChanges[i] = (historicalData[i]-historicalData[i+1])/historicalData[i];
         }
         dailyChanges = quicksort(dailyChanges, 0, dailyChanges.length-1);
         double alpha = (data.has("alpha")) ? (double) data.get("alpha"): 0.05;
@@ -347,9 +354,9 @@ public class Stock extends Thread implements Job
                 .replace("}", "").replace("[", "")
                 .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray();
         double[] dailyChanges= new double[historicalData.length-1];
-        for (int i = 1 ; i  < dailyChanges.length;i++)
+        for (int i = 0 ; i  < dailyChanges.length;i++)
         {
-            dailyChanges[i-1] = (historicalData[i]-historicalData[i-1])/historicalData[i-1];
+            dailyChanges[i] = (historicalData[i]-historicalData[i-1])/historicalData[i-1];
         }
         Processor s = new Processor(dailyChanges);
         Thread t = new Thread(s);
@@ -372,25 +379,151 @@ public class Stock extends Thread implements Job
         return output;
     }
 
-    public JSONObject VARVarianceP()
-    {
-        assert data!=null:"JSONObject 'data' !=null";
-        JSONObject assets = new JSONObject((String) data.get("assets"));
-        HashMap<String,double[]> historical = new HashMap<>();
-        for (String s: assets.keySet())
+    public JSONObject VARVarianceP() {
+        assert data != null : "JSONObject 'data' !=null";
+        JSONObject assets = new JSONObject(data.get("portfolio").toString());
+        HashMap<String, double[]> historical = new HashMap<>();
+        HashMap<String, double[]> assetReturns = new HashMap<>();
+        HashMap<String, Double> assetWeights = new HashMap<>();
+        double portfolioValue = 0;
+
+        if (!data.has("portfolio_value"))
         {
-            //the asset historical data can exist either as a string or a double[]
-            if (assets.get(s).getClass() == double[].class)
-                historical.put(s, (double[]) assets.get(s));
-            else
-                historical.put(s, Stream.of(((String)assets.get(s)).replace("{", "")
-                        .replace("}", "").replace("[", "")
-                        .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray());
+            portfolioValue = calculatePortfolioValue(assets);
+            for (String s : assets.keySet())
+            {
+
+                //the asset historical data can exist either as a string or a double[]
+                if (assets.get(s).getClass() == double[].class)
+                    historical.put(s, (double[]) assets.get(s));
+                else
+                    historical.put(s, Stream.of((assets.get(s)).toString().replace("{", "")
+                            .replace("}", "").replace("[", "")
+                            .replace("]", "").split(",|\\s+")).mapToDouble(Double::parseDouble).toArray());
+
+                double[] logReturn = new double[historical.get(s).length - 1];
+                for (int i = 0; i < logReturn.length; i++)
+                {
+                    logReturn[i] = Math.log(historical.get(s)[i+1] / historical.get(s)[i]);
+                }
+                assetReturns.put(s, logReturn);
+                assetWeights.put(s,historical.get(s)[historical.get(s).length-1]/portfolioValue);
+                System.out.println(s+": " +Arrays.toString(logReturn));
+            }
+
         }
-        return null;
+        else {
+            portfolioValue = Double.parseDouble((String) data.get("portfolio_value"));
+            for (String s : assets.keySet())
+            {
+                //the asset historical data can exist either as a string or a double[]
+                if (assets.get(s).getClass() == double[].class)
+                    historical.put(s, (double[]) assets.get(s));
+                else
+                    historical.put(s, Stream.of(((String) assets.get(s)).replace("{", "")
+                            .replace("}", "").replace("[", "")
+                            .replace("]", "").split(",\\s+")).mapToDouble(Double::parseDouble).toArray());
+                double[] logReturn = new double[historical.get(s).length - 1];
+
+                for (int i = 1; i < logReturn.length; i++)
+                {
+                    logReturn[i - 1] = Math.log(historical.get(s)[i] / historical.get(s)[i - 1]);
+                }
+                assetReturns.put(s, logReturn);
+                assetWeights.put(s,historical.get(s)[historical.get(s).length-1]/portfolioValue);
+            }
+        }
+
+        Processor p1 = new Processor(historical);
+        Processor p2 = new Processor(historical.keySet(), assetReturns);
+        p2.setAssetWeights(assetWeights);
+        Thread t0 = new Thread(p1);
+        Thread t = new Thread(p2);
+        t.start();
+        p2.run();
+        try
+        {
+            t.join();
+            t0.join();
+        }
+        catch(InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+        //creating covariance matrix
+        //off diagonals are COV(row, column)
+        double wvar = weightedVariance(p2, assetWeights);
+        System.out.println(assetWeights);
+        double confidence_level = (data.has("confidence_level")) ? (double) data.get("confidence_level"): 0.95;
+        double valueAtRisk = 0;
+        if (data.has("zero_mean"))
+        {
+            if (((String)data.get("zero_mean")).equals("true"))
+            valueAtRisk = Math.sqrt(wvar) * nd.inverseCumulativeProbability(confidence_level);
+            else {
+                valueAtRisk = -p1.getMean()+Math.sqrt(wvar) * nd.inverseCumulativeProbability(confidence_level);
+            }
+        }
+        else valueAtRisk = -p1.getMean()+Math.sqrt(wvar)*nd.inverseCumulativeProbability(confidence_level);
+        JSONObject output= new JSONObject();
+        output.put("value_at_risk", valueAtRisk);
+        output.put("value_at_risk_monetary", valueAtRisk*portfolioValue);
+        output.put("portfolio_variance", wvar);
+        output.put("portfolio_deviation", Math.sqrt(wvar));
+        output.put("portfolio_value", portfolioValue);
+        output.put("asset_weights", assetWeights.toString());
+        return output;
     }
 
 
+    public double calculatePortfolioValue(JSONObject assets)
+    {
+        double var = 0;
+        for (Object o: assets.keySet()) {
+            if (assets.get((String) o).getClass() == double[].class)
+                var += ((double[]) assets.get((String) o))[(((double[]) assets.get((String) o))).length - 1];
+            else {
+                double[] d = (Stream.of((assets.get((String) o)).toString().replace("{", "")
+                        .replace("}", "").replace("[", "")
+                        .replace("]", "").split(",|\\s+")).mapToDouble(Double::parseDouble).toArray());
+                var += d[d.length-1];
+            }
+        }
+        return var;
+    }
+    public double weightedVariance(Processor<String> processor,HashMap<String, Double> assetWeights)
+    {
+        covarianceMatrix = processor.getCovarianceMatrix();
+        int n = covarianceMatrix.length;
+        String[] assets = assetWeights.keySet().toArray(new String[0]);
+
+        double var = 0.0;
+
+        for (int i = 0; i < n; i++) {
+            double w_i = assetWeights.get(assets[i]);
+            for (int j = 0; j < n; j++) {
+                double w_j = assetWeights.get(assets[j]);
+                var += w_i * covarianceMatrix[i][j].getValue() * w_j;
+            }
+        }
+
+        return var;
+    }
+
+    public double sum(double[] s)
+    {
+        double d = 0;
+        for (double i:s)
+            d+=i;
+        return d;
+    }
+    public double sum(Tag[] s)
+    {
+        double d = 0;
+        for (Tag i:s)
+            d+=i.getValue();
+        return d;
+    }
     public int partition(double[] a, int l, int h)
     {
         double pivot = a[h];
@@ -446,16 +579,66 @@ public class Stock extends Thread implements Job
                 98.76, 101.38, 104.92, 108.56, 112.07, 115.81, 114.35, 110.96,
                 107.84, 104.18, 100.76, 98.21, 96.57, 99.03
         };
+//        JSONObject o = new JSONObject();
+//        o.put("historical_data", Arrays.toString(stockPrices));
+//        o.put("goal","minimize");
+//        Stock S = new Stock(o);
+//        o = S.GARCH();
+//        for (String s: o.keySet())
+//        {
+//            System.out.println(s + " : "+o.get(s));
+//        }
+        //String stock = Arrays.toString(stockPrices);
+        //double[] s = Stream.of(stock).mapToDouble(Double::parseDouble).toArray();
+
+
+
+//        HashMap<String, double[]> m= new HashMap<>();
+//        m.put("test1", new double[]{1,2,3});
+//        m.put("test2", new double[]{4,5,6});
+//        m.put("test3", new double[]{7,8,9});
+//        Processor<String> p = new Processor<>(m.keySet(), m);
+//        p.setAssetReturns(m);
+//        p.setKeys(m.keySet());
+//        Thread t = new Thread(p);
+//        t.start();
+//        try { t.join();} catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+
+//        HashMap<String, Double> a = new HashMap<>();
+//        HashMap<String, Double> b = new HashMap<>();
+//        HashMap<String, Double> c = new HashMap<>();
+//        a.put("hi", 1.0);
+//        a.put("he", 1.0);
+//        a.put("ho", 1.0);
+//
+//
+//        b.put("hi", 1.0);
+//        b.put("he", 1.0);
+//        b.put("ho", 1.0);
+//
+//        c.put("hi", 1.0);
+//        c.put("he", 1.0);
+//        c.put("ho", 1.0);
+//
+//        System.out.println(a.toString());
+//        System.out.println(b.toString());
+//        System.out.println(c.toString());
+//
+//        System.out.println(Arrays.toString(a.keySet().toArray()));
+//        System.out.println(Arrays.toString(b.keySet().toArray()));
+//        System.out.println(Arrays.toString(c.keySet().toArray()));
         JSONObject o = new JSONObject();
-        o.put("historical_data", Arrays.toString(stockPrices));
-        o.put("goal","minimize");
-        Stock S = new Stock(o);
-        o = S.GARCH();
-        for (String s: o.keySet())
-        {
-            System.out.println(s + " : "+o.get(s));
-        }
+        JSONObject portfolio = new JSONObject();
+        portfolio.put("choco1", new double[]{80.0,55.1,102.2});
+        portfolio.put("choco2", new double[]{42.4,22.0,111});
+        portfolio.put("choco3", new double[]{123.5,45,110});
+
+        o.put("portfolio", portfolio);
+        Stock s = new Stock(o);
+        System.out.println(s.VARVarianceP());
     }
+
 
 }
 
@@ -465,8 +648,7 @@ public class Stock extends Thread implements Job
 
 
 @Data
-@AllArgsConstructor
-class Processor implements Runnable
+class Processor<T> implements Runnable
 {
     private double mean;
     private double standardDev;
@@ -482,40 +664,78 @@ class Processor implements Runnable
 
 
     private JSONObject data;
-    private HashMap<String,double[]> assetReturns;
+    private HashMap<T,double[]> assetReturns;
+    private HashMap<T,Double> assetWeights;
+    private HashMap<T,Double> stockAverages;
+    private HashMap<T,Double> stockVariations;
     private Mean m;
-    private StandardDeviation sd;
+    private Variance v;
     private NormalDistribution nd;
-
+    private Set<T> keys;
+    private List<Pair<T>> stringPairs;
+    private Covariance covariance;
+    private HashMap<T, Double> covariancePairs;
+    private Tag[][] covarianceMatrix;
     public Processor()
     {
         m = new Mean();
-        sd = new StandardDeviation();
+        v = new Variance();
         nd = new NormalDistribution();
 
+    }
+
+    public Processor(Set<T> keys,HashMap<T,double[]> aR )
+    {
+        this.keys = keys;
+        assetReturns = aR;
+        covariance = new Covariance();
+        m = new Mean();
+        v = new Variance();
     }
 
     public Processor(double[] r)
     {
         m = new Mean();
-        sd = new StandardDeviation();
+        v = new Variance();
         nd = new NormalDistribution();
         returns = r;
     }
     public Processor(JSONObject d)
     {
         m = new Mean();
-        sd = new StandardDeviation();
+        v = new Variance();
         nd = new NormalDistribution();
         data = d;
     }
     public Processor(JSONObject d, double[] r)
     {
         m = new Mean();
-        sd = new StandardDeviation();
+        v = new Variance();
         nd = new NormalDistribution();
         data = d;
         returns = r;
+    }
+    public Processor(HashMap<T, double[]> historical)
+    {
+        m = new Mean();
+        v = new Variance();
+        nd = new NormalDistribution();
+        assetReturns = historical;
+    }
+    public void fillDiagonal()
+    {
+        for (int row = 0; row < covarianceMatrix.length; row++)
+        {
+            for (int col = 0; col < covarianceMatrix.length; col++)
+            {
+                if (row == col)
+                {
+                    covarianceMatrix[row][col] = new Tag();
+                    covarianceMatrix[row][col].setTagAndValue((String) stockVariations.keySet().toArray()[row], stockVariations.get(stockVariations.keySet().toArray()[row]));
+                }
+
+            }
+        }
     }
     @Override
     public void run()
@@ -523,25 +743,59 @@ class Processor implements Runnable
         if (returns !=null && data == null)
         {
             mean = m.evaluate(returns);
-            standardDev = sd.evaluate(returns);
+            standardDev = v.evaluate(returns);
             return;
         }
+        else if (keys!=null && assetReturns!=null) {
+            Pairs<T> p = new Pairs<>();
+            stringPairs = p.findPairs(keys);
+            covariancePairs = new HashMap<>();
+            stockAverages = new HashMap<>();
+            stockVariations = new HashMap<>();
+            mean = 0;
+            for (T S : assetReturns.keySet())
+            {
+                stockAverages.put(S, m.evaluate(assetReturns.get(S)));
+                stockVariations.put(S, v.evaluate(assetReturns.get(S)));
+            }
+            System.out.println("VAR "+ stockVariations);
+            for (Pair<T> pair : stringPairs)
+            {
+                double covar = covariance.covariance(assetReturns.get(pair.getP1()), assetReturns.get(pair.getP2()));
+                covariancePairs.put((T) (pair.getP1() + " : " + pair.getP2()), covar);
+            }
+            covarianceMatrix = new Tag[keys.size()][keys.size()];
+            fillDiagonal();
+            for (int row = 0; row < covarianceMatrix.length; row++) {
+                for (int col = 0; col < covarianceMatrix.length; col++) {
+                    if (row!=col)
+                    {
+                        covarianceMatrix[row][col] = new Tag();
+                        Tag o1 = covarianceMatrix[row][row];
+                        Tag o2 = covarianceMatrix[col][col];
+                        String tag = covariancePairs.containsKey(o1.getTag()+" : "+o2.getTag()) ? o1.getTag()+ " : "+o2.getTag(): o2.getTag() + " : "+o1.getTag();
+                        covarianceMatrix[row][col].setTagAndValue(tag, covariancePairs.get(tag));
 
+                    }
+                }
+            }
+            return;
+        }
         else if (assetReturns !=null)
         {
-            asset_mean = new double[assetReturns.size()];
-            int i = 0;
-            for (String S: assetReturns.keySet())
+            stockVariations = new HashMap<>();
+            stockAverages = new HashMap<>();
+            mean = 0;
+            for (T S: assetReturns.keySet())
             {
-                asset_mean[i] = m.evaluate(assetReturns.get(S));
-                i++;
+                double e= m.evaluate(assetReturns.get(S));
+                mean+=e;
+                stockAverages.put(S, e);
+                stockVariations.put(S, v.evaluate(assetReturns.get(S)));
             }
             return;
         }
 
-        /**
-         *Used for estimating α, ω, β and maximum log-likelihood under Gaussian assumption
-         */
         else if (data !=null && returns !=null)
 
         {
@@ -563,7 +817,6 @@ class Processor implements Runnable
                 alpha = p[1];
                 beta = p[2];
                 logLikelihood = -pv.getValue();
-                condVariances = mle.getConditionalVariance();
             }
             else
             {
@@ -574,9 +827,11 @@ class Processor implements Runnable
                 alpha = p[1];
                 beta = p[2];
                 logLikelihood = pv.getValue();
-                condVariances = mle.getConditionalVariance();
             }
+            condVariances = mle.getConditionalVariance();
+
         }
+
 
     }
     public void setSign(boolean b)

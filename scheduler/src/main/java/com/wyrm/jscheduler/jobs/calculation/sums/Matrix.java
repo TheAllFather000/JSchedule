@@ -4,6 +4,8 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 import com.wyrm.jscheduler.jobs.Job;
+import com.wyrm.jscheduler.utility.Tag;
+
 @SuppressWarnings("all")
 public class Matrix extends RecursiveAction implements Job
 {
@@ -39,6 +41,9 @@ public class Matrix extends RecursiveAction implements Job
         matrix_1 = (Double[]) o1;
         this.parallel_matrix = results;
     }
+
+    public Matrix()
+    {}
 
     /**
      * Add together the elements of two single dimension matrices (arrays)
@@ -230,4 +235,18 @@ public class Matrix extends RecursiveAction implements Job
         }
         return o2;
     }
+    public Tag[][] transpose(Tag[][] o1)
+    {
+        assert o1 != null: "Input matrix is null";
+        assert o1.length !=0: "Input matrix is empty";
+        Tag[][] o2 = new Tag[o1[0].length][o1.length];
+        for (int rows  = 0 ; rows < o1.length; rows++)
+        {
+            for (int cols = 0; cols < o1[0].length;cols++)
+                o2[cols][rows] = o1[rows][cols];
+        }
+        return o2;
+    }
+
+
 }
