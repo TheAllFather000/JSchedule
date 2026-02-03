@@ -1,5 +1,6 @@
 package com.wyrm.jscheduler.jobs.stochastic.financial;
 import com.wyrm.jscheduler.jobs.calculation.sums.Matrix;
+
 import org.apache.commons.math3.optim.InitialGuess;
 import org.apache.commons.math3.optim.MaxEval;
 import org.apache.commons.math3.optim.PointValuePair;
@@ -17,13 +18,13 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import com.wyrm.jscheduler.jobs.Job;
 import org.json.JSONObject;
 import lombok.Data;
-
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import com.wyrm.jscheduler.utility.*;
+
 @SuppressWarnings("all")
 public class Stock extends Thread implements Job
 {
@@ -628,15 +629,15 @@ public class Stock extends Thread implements Job
 //        System.out.println(Arrays.toString(a.keySet().toArray()));
 //        System.out.println(Arrays.toString(b.keySet().toArray()));
 //        System.out.println(Arrays.toString(c.keySet().toArray()));
-        JSONObject o = new JSONObject();
-        JSONObject portfolio = new JSONObject();
-        portfolio.put("choco1", new double[]{80.0,55.1,102.2});
-        portfolio.put("choco2", new double[]{42.4,22.0,111});
-        portfolio.put("choco3", new double[]{123.5,45,110});
-
-        o.put("portfolio", portfolio);
-        Stock s = new Stock(o);
-        System.out.println(s.VARVarianceP());
+//        JSONObject o = new JSONObject();
+//        JSONObject portfolio = new JSONObject();
+//        portfolio.put("choco1", new double[]{80.0,55.1,102.2});
+//        portfolio.put("choco2", new double[]{42.4,22.0,111});
+//        portfolio.put("choco3", new double[]{123.5,45,110});
+//
+//        o.put("portfolio", portfolio);
+//        Stock s = new Stock(o);
+//        System.out.println(s.VARVarianceP());
     }
 
 

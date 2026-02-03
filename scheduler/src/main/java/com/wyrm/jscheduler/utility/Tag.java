@@ -1,12 +1,14 @@
 package com.wyrm.jscheduler.utility;
 
 import lombok.Data;
+import lombok.Getter;
 
 @Data
 public class Tag
 {
 
     private String tag;
+    @Getter
     private double value;
 
     public void setTagAndValue(String t, double v)
