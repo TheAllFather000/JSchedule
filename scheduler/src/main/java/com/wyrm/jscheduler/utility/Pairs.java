@@ -7,27 +7,27 @@ import java.util.*;
 
 public class Pairs<T>
 {
-    private final ArrayList<Pair<T>> pairs;
+    private final ArrayList<Pair<T, T>> pairs;
     public Pairs(){pairs = new ArrayList<>(); }
 
 
-    public List<Pair<T>> findPairs(Set<T> keys)
+    public List<Pair<T, T>> findPairs(Set<T> keys)
     {
         Arrays.sort(keys.toArray());
             boolean present = false;
-            List<Pair<T>> pairs_ = new ArrayList<>();
+            List<Pair<T,T>> pairs_ = new ArrayList<>();
             for (T t: keys)
             {
                 for (T tt: keys)
                 {
                     if (!t.equals(tt))
                     {
-                        Pair<T> p1;
+                        Pair<T, T> p1;
                         if (((String) t).compareTo(((String) tt)) <0)
                             p1 = new Pair<>(t, tt);
                         else
                             p1 = new Pair<>(tt, t);
-                        for (Pair<T> p : pairs_)
+                        for (Pair<T, T> p : pairs_)
                         {
                             if (p.equals(t,tt))
                             {

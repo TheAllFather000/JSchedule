@@ -1,6 +1,4 @@
 package com.wyrm.jscheduler.jobs.stochastic.financial;
-import com.wyrm.jscheduler.jobs.calculation.sums.Matrix;
-
 import org.apache.commons.math3.optim.InitialGuess;
 import org.apache.commons.math3.optim.MaxEval;
 import org.apache.commons.math3.optim.PointValuePair;
@@ -25,7 +23,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 import com.wyrm.jscheduler.utility.*;
 
-@SuppressWarnings("all")
 public class Stock extends Thread implements Job
 {
     private Mean m;
@@ -359,7 +356,7 @@ public class Stock extends Thread implements Job
         {
             dailyChanges[i] = (historicalData[i]-historicalData[i-1])/historicalData[i-1];
         }
-        Processor s = new Processor(dailyChanges);
+        Processor<String> s = new Processor(dailyChanges);
         Thread t = new Thread(s);
         t.start();
         double alpha = (data.has("alpha")) ? 1- (double) data.get("alpha"): 0.95;
@@ -673,7 +670,7 @@ class Processor<T> implements Runnable
     private Variance v;
     private NormalDistribution nd;
     private Set<T> keys;
-    private List<Pair<T>> stringPairs;
+    private List<Pair<T,T>> stringPairs;
     private Covariance covariance;
     private HashMap<T, Double> covariancePairs;
     private Tag[][] covarianceMatrix;
@@ -760,7 +757,7 @@ class Processor<T> implements Runnable
                 stockVariations.put(S, v.evaluate(assetReturns.get(S)));
             }
             System.out.println("VAR "+ stockVariations);
-            for (Pair<T> pair : stringPairs)
+            for (Pair<T, T> pair : stringPairs)
             {
                 double covar = covariance.covariance(assetReturns.get(pair.getP1()), assetReturns.get(pair.getP2()));
                 covariancePairs.put((T) (pair.getP1() + " : " + pair.getP2()), covar);
